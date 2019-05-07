@@ -2,25 +2,24 @@ import shape.Circle;
 import shape.PPoint;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Point2D;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.*;
 import java.util.List;
-import java.util.Random;
 
 /**
  * Algorithm from Chapter 4 of BCKO Textbook,
  * no optimizations (except keeping permutation)
  * so it is as in the textbook.
- * */
+ */
 public class MinDiscPanel extends JPanel {
 
-    private final Color LIGHT_BLUE = new Color(141, 196, 243, 255);
-    private final Color PINK2 = new Color(236, 188, 203, 255);
-    private final Color PINK3 = new Color(236, 159, 191, 255);
+    private final Color DISC_COLOR = new Color(122, 181, 243, 255);
+    private final Color POINT_COLOR = new Color(221, 221, 221, 255);
+    private final Color PINK = new Color(236, 176, 202, 255);
 
     // ----- GUI stuff ----- //
 
@@ -37,10 +36,28 @@ public class MinDiscPanel extends JPanel {
     private boolean focusPoint = false;
     private boolean focusDisc = false;
 
+    private enum MODE {
+        NONE,
+        RUNNING,    // either random or compute
+        FREEHAND
+    }
+    private MODE mode;
+
+    private enum PSET {
+        Pi, Pj, Pk
+    }
+    private PSET pset;
+
+
+    // Details panel to show numbers and stuff
+    private DetailsPanel detailsPanel;
+
 
     // ----- Algorithm stuff ----- //
 
-    /** The smallest enclosing disc */
+    /**
+     * The smallest enclosing disc
+     */
     private Circle disc = null;
 
     private enum STEP {
@@ -49,32 +66,18 @@ public class MinDiscPanel extends JPanel {
         MINIDISC_TWOPOINT,
         DIAMETER, DIAMETER_j, DIAMETER_k
     }
+
     private STEP step;
     private List<PPoint> P, P_j, P_k;
     private PPoint q1, q2;
     private int ix_i = 2, ix_j, ix_k;
 
 
-    private void reset(){
-        P = randomPointSet(40);
-        disc = Circle.diameter(P.get(0), P.get(1));
-        step = STEP.DIAMETER;
-        ix_i = 2;
-        ix_j = 0;
-        ix_k = 0;
-        q1 = null;
-        q2 = null;
-        P_j = null;
-        P_k = null;
-    }
-
-
-
-    public MinDiscPanel(){
+    public MinDiscPanel() {
 
         // set up the user interface dimensions
         Dimension d = getPreferredSize();
-        d.setSize(1000, 700);
+        d.setSize(900, 700);
         width = d.getWidth();
         height = d.getHeight();
         setPreferredSize(d);
@@ -84,81 +87,141 @@ public class MinDiscPanel extends JPanel {
         setBackground(Color.WHITE);
         revalidate();
 
-        P = randomPointSet(40);
-        disc = Circle.diameter(P.get(0), P.get(1));
-        step = STEP.DIAMETER;
-        start();
+        P = new ArrayList<>();
+        mode = MODE.NONE;
 
         repaint();
     }
 
+    // --------- Related details panel ----------- //
+
+    public void receiveDetailsPanel(JPanel detailsPanel){
+        this.detailsPanel = (DetailsPanel) detailsPanel;
+    }
+
+    /** Update the detailsPanel */
+    private void updateRoutine(PSET pset){
+        if(mode != MODE.RUNNING) return;
+
+        switch(pset) {
+            case Pi:
+                detailsPanel.updateRoutine("MiniDisc", 1);
+                break;
+            case Pj:
+                detailsPanel.updateRoutine("MiniDiscOnePoint", 2);
+                break;
+            case Pk:
+                detailsPanel.updateRoutine("MiniDiscTwoPoints", 3);
+                break;
+        }
+    }
 
     // --------- Visual interface set up --------- //
 
 
-    /** PaintComponent method to update the visual display */
+    /**
+     * PaintComponent method to update the visual display
+     */
     @Override
-    public void paintComponent(Graphics g){
+    public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
         g2.setStroke(new BasicStroke(2.0f));
 
-        if(P != null){
-            g2.setColor(Color.LIGHT_GRAY);
-            for(PPoint p: P) {
-                if(p.isDone())
-                    g2.setColor(Color.BLACK);
+        if (P != null) {
+            for (PPoint p : P) {
+                g2.setColor(POINT_COLOR);
+                if(P_j != null
+                        && mode == MODE.RUNNING
+                        && P_j.contains(p))
+                    g2.setColor(Color.DARK_GRAY);
                 drawPoint(p, g2);
             }
         }
 
-        if(disc != null){
+
+//        if (P_j != null){
+//            g2.setColor(Color.DARK_GRAY);
+//            for (PPoint p : P_j) {
+//                drawPoint(p, g2);
+//            }
+//        }
+
+        if (lastPt != null && mode == MODE.FREEHAND) {
+            g2.setColor(POINT_COLOR);
+            drawPoint(new PPoint(lastPt.getX() + origin.getX(),
+                    lastPt.getY() + origin.getY()), g2);
+        }
+
+        if (disc != null) {
             //System.out.println(disc.toString());
-            g2.setColor(LIGHT_BLUE);
+            g2.setColor(DISC_COLOR);
             drawEllipse(g2);
         }
     }
 
-    /** helper to draw a point */
-    private void drawPoint(PPoint p, Graphics2D g2){
-        Ellipse2D e = new Ellipse2D.Double(p.x-size/2+origin.getX(),
-                p.y-size/2+origin.getY(), size, size);
+    /**
+     * helper to draw a point
+     */
+    private void drawPoint(PPoint p, Graphics2D g2) {
+        Ellipse2D e = new Ellipse2D.Double(p.x - size / 2 + origin.getX(),
+                p.y - size / 2 + origin.getY(), size, size);
         g2.fill(e);
         g2.draw(e);
     }
 
-    /** helper to draw an elipse */
-    private void drawEllipse(Graphics2D g2){
+    /**
+     * helper to draw an elipse
+     */
+    private void drawEllipse(Graphics2D g2) {
         PPoint c = disc.getCenter();
         double r = disc.getRadius();
-        Ellipse2D elli = new Ellipse2D.Double(c.x-r-size/2+origin.getX(),
-                c.y-r-size/2+origin.getY(), r*2+size,r*2+size);
+        Ellipse2D elli = new Ellipse2D.Double(c.x - r - size / 2 + origin.getX(),
+                c.y - r - size / 2 + origin.getY(), r * 2 + size, r * 2 + size);
         g2.draw(elli);
     }
 
-    /** Allow map to respond to clicks and drags of the mouse. */
-    private void configureMouseListeners(){
+    /**
+     * Helper, add a point (clicked) to list P
+     */
+    private void addPoint(MouseEvent e) {
+        PPoint pt = new PPoint(e.getX() - origin.getX(), e.getY() - origin.getY());
+        P.add(pt);
+        detailsPanel.totalPoints(P.size());
+        repaint();
+    }
+
+    /**
+     * Allow map to respond to clicks and drags of the mouse.
+     */
+    private void configureMouseListeners() {
 
         // Mouse Click
         addMouseListener(new MouseAdapter() {
 
             @Override
             public void mousePressed(MouseEvent e) {
-                lastPt = e.getPoint(); // set the new mouse point.
+                // set the new mouse point.
+                lastPt = e.getPoint();
             }
 
             @Override
-            public void mouseClicked(MouseEvent e){
-                //lastPt = new Point2D.Double(e.getX(), e.getY());
-//                PPoint pt =  new PPoint(e.getX(), e.getY());
-//                P.add(pt);
-//                disc = Circle.computeFrom(P.get(P.size()-2), P.get(P.size()-3), pt);
-//                repaint();
+            public void mouseClicked(MouseEvent e) {
 
+                if (mode == MODE.FREEHAND) {
+                    P.add(new PPoint(e.getX(), e.getY()));
+                    disc = Disc.computeMiniDisc(P);
+                    // detailsPanel.totalPoints(P.size());
+                } else if (mode != MODE.RUNNING) {
+                    addPoint(e);
+                }
+            }
 
-                // clicked a node; a double click.
-                if(e.getClickCount() == 2){
-                    //
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (mode == MODE.FREEHAND) {
+                    addPoint(e);
+                    disc = Disc.computeMiniDisc(P);
                 }
             }
         });
@@ -168,21 +231,107 @@ public class MinDiscPanel extends JPanel {
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                double dx = e.getX() - lastPt.getX();
-                double dy = e.getY() - lastPt.getY();
-                origin.setLocation(origin.getX() + dx, origin.getY() + dy);
 
-                lastPt = e.getPoint();
-                repaint();
+                if (mode != MODE.FREEHAND) {
+                    double dx = e.getX() - lastPt.getX();
+                    double dy = e.getY() - lastPt.getY();
+                    origin.setLocation(origin.getX() + dx, origin.getY() + dy);
+                    lastPt = e.getPoint();
+                    repaint();
+                }
+                else if (mode == MODE.FREEHAND) {
+                    lastPt = e.getPoint();
+                    List<PPoint> temp = new ArrayList<>(P);
+                    temp.add(new PPoint(e.getX(), e.getY()));
+                    disc = Disc.computeMiniDisc(temp);
+                    repaint();
+                }
             }
 
             @Override
-            public void mouseMoved(MouseEvent e){
+            public void mouseMoved(MouseEvent e) {
 
             }
         });
     }
 
+    /**
+     * Nullify/clear all the variables
+     */
+    private void reset() {
+        disc = null;
+        ix_i = 2;
+        ix_j = 1;
+        ix_k = 0;
+        q1 = null;
+        q2 = null;
+        P_j = null;
+        P_k = null;
+        lastPt = null;
+        detailsPanel.clear();
+    }
+
+    /**
+     * Button endpoint: Stop, but keep P
+     */
+    public void timerStop() {
+        if (timer != null && timer.isRunning())
+            timer.stop();
+        repaint();
+    }
+
+    /**
+     * Button endpoint: restart the timer
+     */
+    public void timerStart() {
+        if(mode != MODE.RUNNING) return;
+        if (timer != null && !timer.isRunning())
+            timer.start();
+        repaint();
+    }
+
+    /**
+     * Button endpoint, clear canvas
+     */
+    public void clear() {
+        mode = MODE.NONE;
+        timerStop();
+        reset();
+        removeAll();
+        P = new ArrayList<>();
+        repaint();
+    }
+
+    /**
+     * Button endpoint; random generation of points
+     */
+    public boolean random(int count) {
+        clear();
+        P = randomPointSet(count);
+        start();
+        return true;
+    }
+
+    /**
+     * Button endpoint; mini disc for user inputted points
+     */
+    public boolean normal() {
+        timerStop();
+        reset();
+        removeAll();
+        start();
+        return true;
+    }
+
+    /**
+     * Button endpoint: freehand. No panning
+     */
+    public void freehand() {
+        origin.setLocation(0, 0);
+        clear();
+        repaint();
+        mode = MODE.FREEHAND;
+    }
 
 
     // ------------- Algorithm stuff ------------- //
@@ -190,13 +339,13 @@ public class MinDiscPanel extends JPanel {
     /**
      * Generate some random points P of size n = count.
      */
-    private ArrayList<PPoint> randomPointSet(int count){
+    private ArrayList<PPoint> randomPointSet(int count) {
         int seed = 23489;
-        Random rand = new Random();
+        Random rand = new Random(seed);
         ArrayList<PPoint> points = new ArrayList<>();
-        for(int i = 0; i < count; i++) {
-            PPoint pp = new PPoint(rand.nextDouble()*width/1.5 + width/7,
-                    rand.nextDouble()*height/1.5 + height/7);
+        for (int i = 0; i < count; i++) {
+            PPoint pp = new PPoint(rand.nextDouble() * width / 1.5 + width / 7,
+                    rand.nextDouble() * height / 1.2 + height / 7);
             //System.out.println(pp.toString());
             points.add(pp);
         }
@@ -204,35 +353,52 @@ public class MinDiscPanel extends JPanel {
         return points;
     }
 
+    /** Start computing the miniDisc. Sets mode = RUNNING. */
+    public void start() {
 
-    public void start(){
+        detailsPanel.totalPoints(P.size());
 
-        reset();
+        // base cases (?)
+        if (P.size() == 0) {
+            disc = new Circle(new PPoint(0, 0), 0);
+            return;
+        }
+        if (P.size() == 1) {
+            PPoint p = P.get(0);
+            disc = new Circle(new PPoint(p.x, p.y), 0);
+            return;
+        }
 
-        // Todo need to account for MODE
-        iIter = 2;
-        timer = new Timer(0, new ActionListener() {
+        mode = MODE.RUNNING;
+        disc = Circle.diameter(P.get(0), P.get(1));
+        step = STEP.DIAMETER;
+
+        iIter = 0;
+        timer = new Timer(160, new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                if(iIter >= P.size()){
+                if (timer.isRunning() && iIter >= P.size()) {
                     //System.out.println("Done");
                     timer.stop();
+                    mode = MODE.NONE;
 
-                    for(int i = 0; i < P.size(); i++){
-                        if(!disc.contains(P.get(i)))
+                    for (int i = 0; i < P.size(); i++) {
+                        if (!disc.contains(P.get(i)))
                             System.out.println("Iter " + iIter + P.get(i).toString() + " " + i);
                     }
                 }
-                switch (step){
+                switch (step) {
                     case DIAMETER:
                         diameter(P.get(0), P.get(1));
                         step = STEP.MINIDISC;
                         break;
                     case MINIDISC:
+                        updateRoutine(PSET.Pi);
                         miniDisc();
                         iIter++;
                         break;
 
                     case DIAMETER_j:
+                        updateRoutine(PSET.Pj);
                         diameter(q1, P_j.get(0));
                         step = STEP.MINIDISC_ONEPOINT;
                         break;
@@ -241,6 +407,7 @@ public class MinDiscPanel extends JPanel {
                         break;
 
                     case DIAMETER_k:
+                        updateRoutine(PSET.Pk);
                         diameter(q1, q2);
                         step = STEP.MINIDISC_TWOPOINT;
                         break;
@@ -254,7 +421,7 @@ public class MinDiscPanel extends JPanel {
         timer.start();
     }
 
-    private void diameter(PPoint p1, PPoint p2){
+    private void diameter(PPoint p1, PPoint p2) {
         disc = Circle.diameter(p1, p2);
     }
 
@@ -262,10 +429,11 @@ public class MinDiscPanel extends JPanel {
      * Input: a set P of n points in the plane
      * Output: The smallest enclosing disc p1..pn of P
      */
-    private void miniDisc(){
-        for(int i = ix_i; i < P.size();){
+    private void miniDisc() {
+        for (int i = ix_i; i < P.size(); ) {
             PPoint p_i = P.get(i);
-            if(disc.contains(p_i)){
+            if (disc.contains(p_i)) {
+//                p_i.setDone();
                 i++;
                 continue;
             } else {
@@ -283,11 +451,11 @@ public class MinDiscPanel extends JPanel {
      * Input: A set P of n points, and a point q such that there
      * exists an enclosing disc for P with q on its boundary.
      */
-    private void miniDiscWithPoint()
-    {
-        for(int j = ix_j; j < P_j.size();){
+    private void miniDiscWithPoint() {
+        for (int j = ix_j; j < P_j.size(); ) {
             PPoint p_j = P_j.get(j);
-            if(disc.contains(p_j)) {
+            if (disc.contains(p_j)) {
+                p_j.setDone();
                 j++;
                 continue;
             } else {
@@ -306,12 +474,12 @@ public class MinDiscPanel extends JPanel {
     /**
      * Lowest routine, three points must determine a circle.
      * We have added the points and maintained the optimal disc.
-     * */
-    private void miniDiscWith2Points()
-    {
-        for(int k = ix_k; k < P_k.size();){
+     */
+    private void miniDiscWith2Points() {
+        for (int k = ix_k; k < P_k.size(); ) {
             PPoint p_k = P_k.get(k);
-            if(disc.contains(p_k)){
+            if (disc.contains(p_k)) {
+                p_k.setDone();
                 k++;
                 continue;
             } else {
