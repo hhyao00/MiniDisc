@@ -17,9 +17,9 @@ import java.util.List;
  */
 public class MinDiscPanel extends JPanel {
 
-    private final Color DISC_COLOR = new Color(122, 181, 243, 255);
+    private final Color DISC_COLOR = new Color(164, 208, 243, 255);
     private final Color POINT_COLOR = new Color(221, 221, 221, 255);
-    private final Color PINK = new Color(236, 176, 202, 255);
+    private final Color PINK = new Color(244, 181, 206, 255);
 
     // ----- GUI stuff ----- //
 
@@ -29,16 +29,13 @@ public class MinDiscPanel extends JPanel {
     private Point2D lastPt;  // latest click point of mouse
     private Point origin;    // origin point to allow panning
 
-    private int size = 5;   // size of a PPoint
+    private int size = 6;   // size of a PPoint circle
     private Timer timer;    // timer because animation
     private int iIter;      // iteration of outermost loop
 
-    private boolean focusPoint = false;
-    private boolean focusDisc = false;
-
     private enum MODE {
         NONE,
-        RUNNING,    // either random or compute
+        RUNNING,    // either random or compute mode
         FREEHAND
     }
     private MODE mode;
@@ -55,23 +52,23 @@ public class MinDiscPanel extends JPanel {
 
     // ----- Algorithm stuff ----- //
 
-    /**
-     * The smallest enclosing disc
-     */
+    /** The smallest enclosing disc */
     private Circle disc = null;
 
+    // -- These are state variables for MiniDisc() -- //
+    private List<PPoint> P, P_j, P_k;
+    private PPoint q1, q2;
+    private int ix_i = 2, ix_j, ix_k;
     private enum STEP {
         MINIDISC,
         MINIDISC_ONEPOINT,
         MINIDISC_TWOPOINT,
         DIAMETER, DIAMETER_j, DIAMETER_k
     }
+    private STEP step;  // next action
 
-    private STEP step;
-    private List<PPoint> P, P_j, P_k;
-    private PPoint q1, q2;
-    private int ix_i = 2, ix_j, ix_k;
 
+    // -------------------------- //
 
     public MinDiscPanel() {
 
@@ -126,7 +123,7 @@ public class MinDiscPanel extends JPanel {
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
-        g2.setStroke(new BasicStroke(2.0f));
+        g2.setStroke(new BasicStroke(2.1f));
 
         if (P != null) {
             for (PPoint p : P) {
@@ -134,18 +131,18 @@ public class MinDiscPanel extends JPanel {
                 if(P_j != null
                         && mode == MODE.RUNNING
                         && P_j.contains(p))
-                    g2.setColor(Color.DARK_GRAY);
+                    g2.setColor(Color.GRAY);
                 drawPoint(p, g2);
             }
+            if(q1 != null && mode == MODE.RUNNING){
+                g2.setColor(PINK);
+                drawPoint(q1, g2);
+            }
+            if(q2 != null && mode == MODE.RUNNING){
+                g2.setColor(PINK);
+                drawPoint(q2, g2);
+            }
         }
-
-
-//        if (P_j != null){
-//            g2.setColor(Color.DARK_GRAY);
-//            for (PPoint p : P_j) {
-//                drawPoint(p, g2);
-//            }
-//        }
 
         if (lastPt != null && mode == MODE.FREEHAND) {
             g2.setColor(POINT_COLOR);
@@ -164,7 +161,7 @@ public class MinDiscPanel extends JPanel {
      * helper to draw a point
      */
     private void drawPoint(PPoint p, Graphics2D g2) {
-        Ellipse2D e = new Ellipse2D.Double(p.x - size / 2 + origin.getX(),
+        Ellipse2D e = new Ellipse2D.Double(p.x - size/ 2 + origin.getX(),
                 p.y - size / 2 + origin.getY(), size, size);
         g2.fill(e);
         g2.draw(e);
@@ -176,8 +173,11 @@ public class MinDiscPanel extends JPanel {
     private void drawEllipse(Graphics2D g2) {
         PPoint c = disc.getCenter();
         double r = disc.getRadius();
-        Ellipse2D elli = new Ellipse2D.Double(c.x - r - size / 2 + origin.getX(),
-                c.y - r - size / 2 + origin.getY(), r * 2 + size, r * 2 + size);
+        Ellipse2D elli = new Ellipse2D.Double(
+                c.x - r - size / 2 + origin.getX(),
+                c.y - r - size / 2 + origin.getY(),
+                r * 2 + size,
+                r * 2 + size);
         g2.draw(elli);
     }
 
@@ -253,7 +253,11 @@ public class MinDiscPanel extends JPanel {
 
             }
         });
+
     }
+
+
+    // ----------- For buttons ---------- //
 
     /**
      * Nullify/clear all the variables
@@ -331,6 +335,20 @@ public class MinDiscPanel extends JPanel {
         clear();
         repaint();
         mode = MODE.FREEHAND;
+    }
+
+    public void shuffle(){
+        if(P == null)
+            return;
+        Collections.shuffle(P);
+    }
+
+    public void setTimerDelay(int value){
+        if(timer!=null) {
+            timer.stop();
+            timer.setDelay(value);
+            timer.restart();
+        }
     }
 
 

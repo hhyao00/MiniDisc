@@ -7,8 +7,8 @@ public class DetailsPanel extends JPanel {
     private String ROUTINE = "Routine: ", SET_P = "Set P of points; n = ";
     private String
             MINIDISC = "\t\t\t- MiniDisc: P (i = ", MINIDISC2 = ")",
-            MINIDISC_ONE = "\t\t\t- MiniDiscOnePoint ",
-            MINIDISC_TWO = "\t\t\t- MiniDiscTwoPoints ";
+            MINIDISC_ONE = "\t\t\t- MiniDiscOnePoint: ",
+            MINIDISC_TWO = "\t\t\t- MiniDiscTwoPoints: ";
 
 
     private JLabel routineLabel, setLabel,
