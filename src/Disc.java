@@ -4,9 +4,13 @@ import shape.PPoint;
 import java.util.Collections;
 import java.util.List;
 
+
+/**
+ * Just the raw algorithm, based on BCKO.
+ * No need for animation when doing free-hand mode.
+ */
 public class Disc {
 
-    // Just the raw algorithm
 
     public Disc(){}
 

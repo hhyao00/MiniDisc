@@ -1,6 +1,8 @@
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 public class DetailsPanel extends JPanel {
 
@@ -8,19 +10,19 @@ public class DetailsPanel extends JPanel {
     private String
             MINIDISC = "\t\t\t- MiniDisc: P (i = ", MINIDISC2 = ")",
             MINIDISC_ONE = "\t\t\t- MiniDiscOnePoint: ",
-            MINIDISC_TWO = "\t\t\t- MiniDiscTwoPoints: ";
-
+            MINIDISC_TWO = "\t\t\t- MiniDiscTwoPoints: ", RUNTIME = "Runtime (no units): ";
 
     private JLabel routineLabel, setLabel,
-            r1Label, r2Label, r3Label;
-    private int n, r1, r2, r3;
+            r1Label, r2Label, r3Label, runTime;
+    private int n, r1, r2, r3, runtime;
 
     public DetailsPanel(){
-        setLayout(new GridLayout(18, 1));
+        setLayout(new GridLayout(15, 1));
         setBorder(new EmptyBorder(3, 7, 3, 1));
-        add(new JLabel("  "));
+
         add(new JSeparator(SwingConstants.HORIZONTAL));
         addLabels();
+        addExtras();
 
         revalidate();
         repaint();
@@ -40,6 +42,17 @@ public class DetailsPanel extends JPanel {
         add(r1Label);
         add(r2Label);
         add(r3Label);
+
+        runTime = new JLabel(RUNTIME);
+        add(runTime);
+    }
+
+    private void  addExtras(){
+        String[] text = new String[] {" ", " ", " ", " ", " ","Computational Geometry",
+                "Smallest Enclosing Disc", "version 2019-05-09"};
+        for(String s: text){
+            add(new JLabel(s));
+        }
     }
 
     public void clear(){
@@ -54,6 +67,9 @@ public class DetailsPanel extends JPanel {
         r2Label.setText(MINIDISC_ONE + r2);
         r3Label.setText(MINIDISC_TWO + r3);
         routineLabel.setText(ROUTINE);
+
+        runtime = 0;
+        runTime.setText(RUNTIME);
     }
 
 
@@ -75,4 +91,10 @@ public class DetailsPanel extends JPanel {
     public void totalPoints(int numPoints){
         setLabel.setText(SET_P + numPoints);
     }
+
+    public void incRunFrame(){
+        runtime++;
+        runTime.setText(RUNTIME + runtime);
+    }
+
 }

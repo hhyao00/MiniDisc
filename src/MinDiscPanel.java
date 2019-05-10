@@ -17,21 +17,23 @@ import java.util.List;
  */
 public class MinDiscPanel extends JPanel {
 
-    private final Color DISC_COLOR = new Color(164, 208, 243, 255);
-    private final Color POINT_COLOR = new Color(221, 221, 221, 255);
-    private final Color PINK = new Color(244, 181, 206, 255);
+    private final Color DISC_COLOR = new Color(154, 195, 238, 255);
+    private final Color POINT_COLOR = new Color(218, 218, 218, 255);
+    private final Color POINT_COLOR2 = new Color(106, 106, 106, 255);
+    private final Color PINK = new Color(244, 180, 208, 255);
 
     // ----- GUI stuff ----- //
 
     private double width;   // screen width
     private double height;  // screen height
 
-    private Point2D lastPt;  // latest click point of mouse
-    private Point origin;    // origin point to allow panning
+    private Point2D lastPt; // latest click point of mouse
+    private Point origin;   // origin point to allow panning,
+                            // panning is enabled for all but freehand
 
     private int size = 6;   // size of a PPoint circle
     private Timer timer;    // timer because animation
-    private int iIter;      // iteration of outermost loop
+    private int delay = 160;
 
     private enum MODE {
         NONE,
@@ -56,9 +58,13 @@ public class MinDiscPanel extends JPanel {
     private Circle disc = null;
 
     // -- These are state variables for MiniDisc() -- //
+    private int iIter;      // iteration of outermost loop
     private List<PPoint> P, P_j, P_k;
-    private PPoint q1, q2;
-    private int ix_i = 2, ix_j, ix_k;
+    private PPoint q1, q2;  // points to be on boundary
+    private int ix_i = 2, ix_j = 1, ix_k = 0;   // index of routine
+
+    // animating this required pausing the algorithm
+    // every time a new disc was computed. This was such a pain.
     private enum STEP {
         MINIDISC,
         MINIDISC_ONEPOINT,
@@ -68,7 +74,9 @@ public class MinDiscPanel extends JPanel {
     private STEP step;  // next action
 
 
-    // -------------------------- //
+    // --------- end of fields ------------ //
+
+
 
     public MinDiscPanel() {
 
@@ -81,14 +89,14 @@ public class MinDiscPanel extends JPanel {
 
         origin = new Point();
         configureMouseListeners();
-        setBackground(Color.WHITE);
-        revalidate();
-
         P = new ArrayList<>();
         mode = MODE.NONE;
 
+        setBackground(Color.WHITE);
+        revalidate();
         repaint();
     }
+
 
     // --------- Related details panel ----------- //
 
@@ -96,10 +104,9 @@ public class MinDiscPanel extends JPanel {
         this.detailsPanel = (DetailsPanel) detailsPanel;
     }
 
-    /** Update the detailsPanel */
+    /** Update the detailsPanel, track which routine we are on. */
     private void updateRoutine(PSET pset){
         if(mode != MODE.RUNNING) return;
-
         switch(pset) {
             case Pi:
                 detailsPanel.updateRoutine("MiniDisc", 1);
@@ -113,12 +120,10 @@ public class MinDiscPanel extends JPanel {
         }
     }
 
+
     // --------- Visual interface set up --------- //
 
-
-    /**
-     * PaintComponent method to update the visual display
-     */
+    /** PaintComponent method to update the visual display */
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -131,7 +136,7 @@ public class MinDiscPanel extends JPanel {
                 if(P_j != null
                         && mode == MODE.RUNNING
                         && P_j.contains(p))
-                    g2.setColor(Color.GRAY);
+                    g2.setColor(POINT_COLOR2);
                 drawPoint(p, g2);
             }
             if(q1 != null && mode == MODE.RUNNING){
@@ -151,15 +156,12 @@ public class MinDiscPanel extends JPanel {
         }
 
         if (disc != null) {
-            //System.out.println(disc.toString());
             g2.setColor(DISC_COLOR);
             drawEllipse(g2);
         }
     }
 
-    /**
-     * helper to draw a point
-     */
+    /** Helper to draw a point */
     private void drawPoint(PPoint p, Graphics2D g2) {
         Ellipse2D e = new Ellipse2D.Double(p.x - size/ 2 + origin.getX(),
                 p.y - size / 2 + origin.getY(), size, size);
@@ -167,9 +169,7 @@ public class MinDiscPanel extends JPanel {
         g2.draw(e);
     }
 
-    /**
-     * helper to draw an elipse
-     */
+    /** helper to draw an ellipse */
     private void drawEllipse(Graphics2D g2) {
         PPoint c = disc.getCenter();
         double r = disc.getRadius();
@@ -181,9 +181,7 @@ public class MinDiscPanel extends JPanel {
         g2.draw(elli);
     }
 
-    /**
-     * Helper, add a point (clicked) to list P
-     */
+    /** Helper, add a point (clicked) to list P */
     private void addPoint(MouseEvent e) {
         PPoint pt = new PPoint(e.getX() - origin.getX(), e.getY() - origin.getY());
         P.add(pt);
@@ -191,9 +189,7 @@ public class MinDiscPanel extends JPanel {
         repaint();
     }
 
-    /**
-     * Allow map to respond to clicks and drags of the mouse.
-     */
+    /** Allow map to respond to clicks and drags of the mouse. */
     private void configureMouseListeners() {
 
         // Mouse Click
@@ -247,17 +243,12 @@ public class MinDiscPanel extends JPanel {
                     repaint();
                 }
             }
-
-            @Override
-            public void mouseMoved(MouseEvent e) {
-
-            }
         });
 
     }
 
 
-    // ----------- For buttons ---------- //
+    // ----------- For gui buttons ---------- //
 
     /**
      * Nullify/clear all the variables
@@ -344,8 +335,9 @@ public class MinDiscPanel extends JPanel {
     }
 
     public void setTimerDelay(int value){
-        if(timer!=null) {
+        if(timer!=null && mode == MODE.RUNNING) {
             timer.stop();
+            delay = value;
             timer.setDelay(value);
             timer.restart();
         }
@@ -358,13 +350,11 @@ public class MinDiscPanel extends JPanel {
      * Generate some random points P of size n = count.
      */
     private ArrayList<PPoint> randomPointSet(int count) {
-        int seed = 23489;
-        Random rand = new Random(seed);
+        Random rand = new Random();
         ArrayList<PPoint> points = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             PPoint pp = new PPoint(rand.nextDouble() * width / 1.5 + width / 7,
                     rand.nextDouble() * height / 1.2 + height / 7);
-            //System.out.println(pp.toString());
             points.add(pp);
         }
         Collections.shuffle(points, rand);
@@ -392,17 +382,12 @@ public class MinDiscPanel extends JPanel {
         step = STEP.DIAMETER;
 
         iIter = 0;
-        timer = new Timer(160, new ActionListener() {
+        timer = new Timer(delay, new ActionListener() {
             public void actionPerformed(ActionEvent e) {
+                detailsPanel.incRunFrame();
                 if (timer.isRunning() && iIter >= P.size()) {
-                    //System.out.println("Done");
                     timer.stop();
                     mode = MODE.NONE;
-
-                    for (int i = 0; i < P.size(); i++) {
-                        if (!disc.contains(P.get(i)))
-                            System.out.println("Iter " + iIter + P.get(i).toString() + " " + i);
-                    }
                 }
                 switch (step) {
                     case DIAMETER:
