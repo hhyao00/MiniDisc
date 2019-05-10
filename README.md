@@ -1,4 +1,4 @@
 # MiniDisc
 minimum enclosing ball
 
-![minidisc gui](https://imgur.com/f4Kl8RO)
+![minidisc](https://i.imgur.com/f4Kl8RO.png)
