@@ -5,14 +5,22 @@ optional course project AMS 545/ CSE 555 with Professor Joe Mitchell
 ![minidisc](https://i.imgur.com/f4Kl8RO.png)
 
 **Compute MiniDisc**: Animates the computation of finding the miniDisc.
+
 **Freehand**: Immediate generation of miniDisc as points are added to the plane (see Disc.java)
+
 **Random (with input)**: Generates random points, but it is in a bounding square because Java’s random generator returns points within a certain rectangular range.
+
 **Animation speed**: Control speed of animation for ‘Compute’ and ‘Random’.
 
+
 **Shuffle**: The points are considered in the order they are (manually) clicked into the plane. To discard that ordered input, use ‘shuffle’.
+
 **Stop (Pause) / Resume**: Can stop an animation for ‘Compute’ and ‘Random’.
+
 **Clear/Rest**: resets the state of the application.
+
 **A Set P of points; n, (i <= n)**: refers to the number of points in the plane
+
 
 **Routine**: is the method being called. The outermost loop is MiniDisc( P ) which has at most n iterations. MiniDiscOnePoint( P, q ) is called whenever a point(i) is not enclosed in the current disc. Similarly with MiniDiscTwoPoint( P, q1, q2 ). The number of subroutine calls is what makes the difference of expected O(n) and worst case (n^3). The number next to the routine names is the number of calls to that routine.
 
